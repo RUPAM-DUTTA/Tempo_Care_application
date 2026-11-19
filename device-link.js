@@ -311,7 +311,7 @@
             if (!ip) throw new Error('Enter the device IP address');
             if (location.protocol === 'https:' && !/^(localhost|127\.)/.test(ip)) {
                 emit('warn', 'This page is served over HTTPS, so the browser blocks the plain local connection (ws://). ' +
-                             'Use "Remote" instead — it works on the same network too — or open the app from http:// or a file.');
+                             'Enter the device code instead — it works on the same Wi-Fi too — or open the app from http:// or a file.');
             }
             this.disconnect();
             this.wanted = true;

@@ -854,46 +854,47 @@ navItems.forEach(item => {
 });
 
 // --- Hardware Tab Logic & Connectivity (see device-link.js) ---
-const btnTabRemote = document.getElementById('tabRemote');
+// Two ways to reach the device: Wi-Fi and Bluetooth.
+// Wi-Fi uses the device code: messages travel over the device's Wi-Fi through an encrypted message
+// server, so it works whether this phone is on the same Wi-Fi or on another network. When the app is
+// opened from http:// on the same network (start.cmd), an IP address can be typed instead for a direct
+// connection; browsers block that on https:// pages.
 const btnTabBLE = document.getElementById('tabBLE');
 const btnTabWiFi = document.getElementById('tabWiFi');
-const remoteSetup = document.getElementById('remoteSetup');
 const bleSetup = document.getElementById('bleSetup');
 const wifiSetup = document.getElementById('wifiSetup');
 const connStatus = document.getElementById('connStatus');
 const connDetail = document.getElementById('connDetail');
 const btnDisconnect = document.getElementById('btnDisconnect');
-const ipAddress = document.getElementById('ipAddress');
 const btnConnectWiFi = document.getElementById('btnConnectWiFi');
 const pairCodeInput = document.getElementById('pairCode');
+const directAllowed = location.protocol !== 'https:' || /^(localhost|127\.)/.test(location.hostname);
+if (directAllowed) pairCodeInput.placeholder = 'Device code, or IP address on the same Wi-Fi';
 
 function linkEscape(t) { return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function looksLikeAddress(v) { return /^(wss?:\/\/)?(localhost|\d{1,3}(\.\d{1,3}){3}|[a-z0-9-]+\.local)(:\d+)?\/?$/i.test(v); }
 
 const linkUI = {
-    tab: 'remote',
+    tab: 'wifi',
     showTab(tab) {
         this.tab = tab;
-        btnTabRemote.classList.toggle('active', tab === 'remote');
+        btnTabWiFi.classList.toggle('active', tab === 'wifi');
         btnTabBLE.classList.toggle('active', tab === 'ble');
-        btnTabWiFi.classList.toggle('active', tab === 'local');
-        remoteSetup.style.display = tab === 'remote' ? 'block' : 'none';
+        wifiSetup.style.display = tab === 'wifi' ? 'block' : 'none';
         bleSetup.style.display = tab === 'ble' ? 'block' : 'none';
-        wifiSetup.style.display = tab === 'local' ? 'block' : 'none';
-        if (tab === 'local' && location.protocol === 'https:') linkMsg('localMsg', 'Note: on this https:// page the browser blocks Local Wi-Fi. Use Remote instead (it works on the same network too).', 'error');
         if (tab === 'ble' && !deviceLink.bleSupported()) linkMsg('bleMsg', 'This browser has no Web Bluetooth. Use Chrome or Edge on Windows, macOS, Android or ChromeOS (not iPhone/Safari/Firefox).', 'error');
     },
     fillSettingsForm() {
         const st = deviceLink.settings;
-        pairCodeInput.value = st.code || '';
-        if (!ipAddress.value) ipAddress.value = st.lastIp || '';
+        if (!looksLikeAddress(pairCodeInput.value.trim())) pairCodeInput.value = st.code || '';
         const f = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
         f('setPairCode', st.code); f('setBroker', st.broker); f('setBrokerUser', st.user); f('setBrokerPass', st.pass);
     },
     saveSettings() {
         const code = document.getElementById('setPairCode').value.trim().toUpperCase();
-        if (code && !deviceLink.parseCode(code)) return alert('That pairing code does not look right. It is shown in the device log as TCxxxxxxxxxxxx-XXXXXXXXXX.');
+        if (code && !deviceLink.parseCode(code)) return alert('That device code does not look right. It is shown in the device log as TCxxxxxxxxxxxx-XXXXXXXXXX.');
         const broker = document.getElementById('setBroker').value.trim() || 'wss://broker.emqx.io:8084/mqtt';
-        if (!/^wss?:\/\//.test(broker)) return alert('The broker URL must start with wss:// (or ws:// for testing).');
+        if (!/^wss?:\/\//.test(broker)) return alert('The server URL must start with wss:// (or ws:// for testing).');
         deviceLink.updateSettings({ code, broker,
             user: document.getElementById('setBrokerUser').value.trim(),
             pass: document.getElementById('setBrokerPass').value });
@@ -906,12 +907,15 @@ const linkUI = {
         this.fillSettingsForm();
         const st = deviceLink.settings;
         if (st.code && st.autoRemote) deviceLink.connectRemote();
-        this.showTab(st.code ? 'remote' : (deviceLink.bleSupported() ? 'ble' : 'remote'));
+        this.showTab(st.code ? 'wifi' : (deviceLink.bleSupported() ? 'ble' : 'wifi'));
     },
     render(state) {
         const on = deviceLink.anyConnected();
         const busy = ['remote', 'ble', 'local'].some(k => state[k] === 'connecting');
-        const via = state.ble === 'on' ? 'Bluetooth' : state.local === 'on' ? 'Local Wi-Fi' : state.remote === 'on' ? 'Remote' : '';
+        const via = state.ble === 'on' ? 'Bluetooth' : (state.local === 'on' || state.remote === 'on') ? 'Wi-Fi' : '';
+        const wifiState = state.local === 'on' || state.remote === 'on' ? 'on'
+                        : state.local === 'connecting' || state.remote === 'connecting' ? 'connecting'
+                        : state.local === 'error' || state.remote === 'error' ? 'error' : 'off';
         const icon = document.getElementById('connIcon');
         if (on && state.remote === 'on' && state.ble !== 'on' && state.local !== 'on' && state.deviceOnline === false) {
             connStatus.innerText = 'Device offline';
@@ -930,12 +934,10 @@ const linkUI = {
             connStatus.className = 'text-red';
             icon.className = 'icon-circle glow-red';
         }
-        icon.innerHTML = state.ble === 'on' ? '<i class="fa-brands fa-bluetooth-b"></i>'
-                       : state.local === 'on' ? '<i class="fa-solid fa-wifi"></i>' : '<i class="fa-solid fa-globe"></i>';
+        icon.innerHTML = state.ble === 'on' ? '<i class="fa-brands fa-bluetooth-b"></i>' : '<i class="fa-solid fa-wifi"></i>';
         const chip = (id, st) => { const el = document.getElementById(id); el.className = 'link-chip chip-' + st; };
-        chip('chipRemote', state.remote === 'on' && state.deviceOnline === false ? 'error' : state.remote);
+        chip('chipWiFi', state.remote === 'on' && state.local !== 'on' && state.deviceOnline === false ? 'error' : wifiState);
         chip('chipBLE', state.ble);
-        chip('chipLocal', state.local);
         btnDisconnect.disabled = !(on || busy);
         document.getElementById('btnDeviceWifi').disabled = !(state.ble === 'on' || state.remote === 'on' || state.local === 'on');
         const badge = document.getElementById('hwLinkBadge');
@@ -945,13 +947,12 @@ const linkUI = {
     renderStatus(st) {
         const parts = [];
         if (st.name) parts.push(st.name);
-        if (st.ssid) parts.push((st.wifi ? '' : 'joining ') + st.ssid + (st.rssi ? ` (${st.rssi} dBm)` : ''));
+        if (st.ssid) parts.push((st.wifi ? 'Wi-Fi ' : 'joining ') + st.ssid + (st.rssi ? ` (${st.rssi} dBm)` : ''));
         if (st.cloud) parts.push('Cloud: ' + st.cloud);
         connDetail.innerText = parts.join(' · ') || 'ESP32-P4 + RD-03D';
         document.getElementById('devNetInfo').innerText = st.ssid
             ? `Current network: ${st.ssid}${st.wifi ? ' — connected' : ' — not connected'}${st.ip ? ' · IP ' + st.ip : ''}`
             : 'Current network: none';
-        if (st.ip && !ipAddress.value) ipAddress.value = st.ip;
     }
 };
 
@@ -985,13 +986,13 @@ deviceLink.on('tick', ({ ageMs }) => {
 deviceLink.on('paired', (msg) => {
     pairCodeInput.value = msg.code;
     linkUI.fillSettingsForm();
-    connDetail.innerText = 'Paired: ' + msg.code + ' — Remote now works from any network';
+    connDetail.innerText = 'Paired: ' + msg.code + ' — Wi-Fi now works from any network';
 });
 deviceLink.on('need-pairing', () => {
-    connDetail.innerText = 'Enter the pairing code, or pair once over Bluetooth';
+    connDetail.innerText = 'Enter the device code, or pair once over Bluetooth';
 });
 deviceLink.on('decrypt-error', () => {
-    connDetail.innerText = 'Messages cannot be decrypted — check the pairing code';
+    connDetail.innerText = 'Messages cannot be decrypted — check the device code';
 });
 deviceLink.on('warn', (m) => { connDetail.innerText = m; });
 deviceLink.on('scan', (aps) => {
@@ -1008,15 +1009,32 @@ deviceLink.on('ack', (m) => {
     document.getElementById('devWifiMsg').innerText = (m.ok ? '✔ ' : '✖ ') + (m.msg || m.cmd);
 });
 
-btnTabRemote.addEventListener('click', () => linkUI.showTab('remote'));
+btnTabWiFi.addEventListener('click', () => linkUI.showTab('wifi'));
 btnTabBLE.addEventListener('click', () => linkUI.showTab('ble'));
-btnTabWiFi.addEventListener('click', () => linkUI.showTab('local'));
 
-document.getElementById('btnConnectRemote').addEventListener('click', () => {
-    const code = pairCodeInput.value.trim().toUpperCase();
-    if (!deviceLink.parseCode(code)) return alert('Enter the pairing code shown in the device log (TCxxxxxxxxxxxx-XXXXXXXXXX), or pair over Bluetooth.');
+btnConnectWiFi.addEventListener('click', () => {
+    const value = pairCodeInput.value.trim();
+    if (looksLikeAddress(value)) {
+        if (!directAllowed && !/^(wss?:\/\/)?(localhost|127\.)/.test(value)) {
+            return linkMsg('wifiMsg', 'On this secure page enter the device code instead of an IP address (browsers block direct connections from https:// pages). The code works on the same Wi-Fi too.', 'error');
+        }
+        linkMsg('wifiMsg', 'Connecting directly to ' + value + ' …');
+        try { deviceLink.connectLocal(value); } catch (e) { linkMsg('wifiMsg', e.message, 'error'); }
+        return;
+    }
+    const code = value.toUpperCase();
+    if (!deviceLink.parseCode(code)) return linkMsg('wifiMsg', 'Enter the device code (TCxxxxxxxxxxxx-XXXXXXXXXX, shown in the device log), or pair once over Bluetooth to fill it in automatically.', 'error');
+    linkMsg('wifiMsg', 'Connecting over Wi-Fi…');
     deviceLink.updateSettings({ code, autoRemote: true });
     deviceLink.connectRemote();
+});
+
+document.getElementById('btnSetupDeviceWifi').addEventListener('click', () => {
+    const card = document.getElementById('deviceWifiCard');
+    if (deviceLink.anyConnected()) { card.style.display = 'block'; card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return; }
+    linkUI.showTab('ble');
+    linkMsg('bleMsg', 'To choose the device\'s Wi-Fi network, connect over Bluetooth first (next to the device). The Wi-Fi settings open after it connects.');
+    linkUI.openWifiAfterBle = true;
 });
 
 function linkMsg(id, text, kind) {
@@ -1052,23 +1070,14 @@ document.getElementById('btnConnectBLE').addEventListener('click', async () => {
     }
 });
 
-btnConnectWiFi.addEventListener('click', () => {
-    const ip = ipAddress.value.trim();
-    if (!ip) return linkMsg('localMsg', 'Enter the device IP address (shown on the device card and in the device log).', 'error');
-    const local = /^(localhost|127\.)/.test(ip.replace(/^wss?:\/\//, ''));
-    if (location.protocol === 'https:' && !local) {
-        return linkMsg('localMsg', 'Local Wi-Fi cannot work on this https:// page: browsers block plain ws:// connections from secure sites. ' +
-            'Use the Remote tab (it also works on the same network), or open the app from http:// on a computer in the same network.', 'error');
-    }
-    linkMsg('localMsg', 'Connecting to ws://' + ip + ' …');
-    try { deviceLink.connectLocal(ip); }
-    catch (e) { linkMsg('localMsg', e.message, 'error'); }
-});
-
 deviceLink.on('state', (st) => {
-    if (st.local === 'on') linkMsg('localMsg', 'Connected.', 'ok');
-    else if (st.local === 'error' || (st.local === 'connecting' && deviceLink.state.localFailures > 0))
-        linkMsg('localMsg', 'Cannot reach the device at that address. Check that it is on the same Wi-Fi network, the IP is current, and port 81 is not blocked. Retrying…', 'error');
+    if (st.remote === 'on' || st.local === 'on') linkMsg('wifiMsg', st.deviceOnline === false ? 'Connected, but the device is not online. Check that it is switched on and on Wi-Fi.' : 'Connected over Wi-Fi.', st.deviceOnline === false ? 'error' : 'ok');
+    else if (st.local === 'error' || (st.local === 'connecting' && st.localFailures > 0))
+        linkMsg('wifiMsg', 'Cannot reach the device at that address. Check that it is on the same Wi-Fi network and the IP is current. Retrying…', 'error');
+    if (st.ble === 'on' && linkUI.openWifiAfterBle) {
+        linkUI.openWifiAfterBle = false;
+        document.getElementById('deviceWifiCard').style.display = 'block';
+    }
 });
 
 btnDisconnect.addEventListener('click', () => {
@@ -1108,13 +1117,6 @@ document.getElementById('btnSendWifi').addEventListener('click', async () => {
 });
 
 linkUI.fillSettingsForm();
-
-// Local Wi-Fi (ws://) cannot work from a secure https:// page: browsers block it. Hide the tab there;
-// Remote covers the same network. It stays available when the app is opened from http:// (start.cmd).
-if (location.protocol === 'https:' && !/^(localhost|127\.)/.test(location.hostname)) {
-    btnTabWiFi.style.display = 'none';
-    wifiSetup.style.display = 'none';
-}
 
 // The local LLM assistant is implemented in chat.js.
 

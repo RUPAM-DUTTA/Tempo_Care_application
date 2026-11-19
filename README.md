@@ -47,9 +47,10 @@ After applying it, connect the sensor, choose the person on the Home tab, and re
 
 Three tabs, same as Tempo Care 2. All feed the same Radar Motion, Audio Environment and Live Sensor Data cards, and the timeline recording.
 
-- **Remote**: works when the device and this computer/phone are on different networks. Both connect to the MQTT broker (default `wss://broker.emqx.io:8084/mqtt`, Settings → Device Link) and the payloads are AES-256-GCM encrypted with the device's pairing code. Requires the ESP32-P4 firmware with the live link (`ran_for`). After login the app reconnects by itself to the paired device.
+- **Wi-Fi** (device code): works when this computer/phone is on the same Wi-Fi as the device or on a different network (mobile data). Both connect to the MQTT broker (default `wss://broker.emqx.io:8084/mqtt`, Settings → Device Link) and the payloads are AES-256-GCM encrypted with the device's pairing code. Requires the ESP32-P4 firmware with the live link (`ran_for`). After login the app reconnects by itself to the paired device.
 - **Bluetooth**: the ESP32-P4 (`ESP32-TempoCare-XXXX`, also used for pairing and the **Device Wi-Fi** card) or the ESP32-S3 sketch (notify-only packets, which the app reads as before).
-- **Local Wi-Fi**: `ws://<device-ip>:81` on the same network. Browsers block this from an `https://` page; use Remote there.
+- **Wi-Fi with an IP address**: when the app is opened from `http://` on the same network (start.cmd), the Wi-Fi box also accepts the device IP for a direct `ws://<device-ip>:81` connection. Browsers block this from an `https://` page; use the device code there.
+- **Set up the device's Wi-Fi network**: button under the Wi-Fi tab. It opens the Device Wi-Fi card (scan, choose network, password); if nothing is connected yet it asks you to connect over Bluetooth first.
 
 The device card shows which links are up, the round-trip time and the age of the last update. `device-link.js` holds the connection code; `vendor/mqtt.min.js` is MQTT.js 5.10.1 (MIT). The ESP32-P4 firmware does not send `rd_d` / `rd_s` yet, so the Live Sensor Data card fills only with the ESP32-S3 sketch.
 
@@ -146,7 +147,7 @@ Each saved activity in the Timeline has **✓ Correct** and **✗ Wrong**. *Wron
 - **Login** goes through the assistant server when it is reachable; otherwise the published site checks the family login directly against the database (as the original app did). Admin login always needs the server.
 - **AI assistant** runs on an always-on free cloud server (Render) that uses Groq's hosted model `openai/gpt-oss-20b` instead of Ollama, with the same answer checks, supporting records and per-person access. `config.js` lists `https://tempo-care-ai-rupam.onrender.com` first and this laptop (`http://127.0.0.1:8000`) second. The server needs `GROQ_API_KEY` (from https://console.groq.com/keys), `TEMPO_ADMIN_USERNAME` and `TEMPO_ADMIN_PASSWORD`. The free server sleeps after 15 minutes unused and wakes in about a minute. Questions and the records needed to answer them are sent to Groq, unlike the laptop setup.
 - `server.py` accepts the published site (`TEMPO_ORIGINS`, default `https://rupam-dutta.github.io`) with bearer tokens, answers `/api/health`, and uses the hosted model whenever `GROQ_API_KEY` is set; without it (this laptop) it keeps using local Ollama.
-- **Local Wi-Fi** is hidden on the https site because browsers block `ws://` from secure pages; **Remote** works on the same network too. **Bluetooth** needs Chrome or Edge (Windows, macOS, Android, ChromeOS); iPhone browsers have no Web Bluetooth.
+- On the https site the **Wi-Fi** tab uses the device code (browsers block direct `ws://` connections from secure pages); it works on the same network too. **Bluetooth** needs Chrome or Edge (Windows, macOS, Android, ChromeOS); iPhone browsers have no Web Bluetooth.
 
 ## Making it available to other people
 

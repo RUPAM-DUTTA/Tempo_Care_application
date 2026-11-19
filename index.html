@@ -140,19 +140,20 @@
           <div class="dashboard-layout">
           <div class="dashboard-main">
             <div class="toggle-container glass-panel" id="connToggleContainer">
-                <button class="toggle-btn active" id="tabRemote"><i class="fa-solid fa-globe"></i> Remote</button>
+                <button class="toggle-btn active" id="tabWiFi"><i class="fa-solid fa-wifi"></i> Wi-Fi</button>
                 <button class="toggle-btn" id="tabBLE"><i class="fa-brands fa-bluetooth-b"></i> Bluetooth</button>
-                <button class="toggle-btn" id="tabWiFi"><i class="fa-solid fa-wifi"></i> Local Wi-Fi</button>
             </div>
 
-            <!-- Remote: works from any network (device and phone on different Internet connections) -->
-            <div class="link-panel fade-in-up" id="remoteSetup">
-                <p class="link-hint"><i class="fa-solid fa-globe text-cyan"></i> Works from anywhere: the device and this phone can be on different networks.</p>
+            <!-- Wi-Fi: the device is on Wi-Fi; this phone can be on the same network or any other one -->
+            <div class="link-panel fade-in-up" id="wifiSetup">
+                <p class="link-hint"><i class="fa-solid fa-wifi text-green"></i> Connect to the device over its Wi-Fi. Works when this phone is on the same Wi-Fi or on a different network (mobile data).</p>
                 <div class="ip-input-container">
-                    <input type="text" id="pairCode" class="input-field glow-focus" placeholder="Pairing code, e.g. TC1A2B3C4D5E6F-K7P2QX9MAB" autocomplete="off" spellcheck="false" style="margin-bottom:0;">
-                    <button id="btnConnectRemote" class="action-btn gradient-green">Connect</button>
+                    <input type="text" id="pairCode" class="input-field glow-focus" placeholder="Device code, e.g. TC1A2B3C4D5E6F-K7P2QX9MAB" autocomplete="off" spellcheck="false" style="margin-bottom:0;">
+                    <button id="btnConnectWiFi" class="action-btn gradient-green">Connect</button>
                 </div>
-                <p class="link-hint small">First time? Tap <strong>Bluetooth</strong> next to the device within 10 minutes of switching it on: it pairs automatically and Remote connects by itself.</p>
+                <p class="link-hint small link-msg" id="wifiMsg" role="status"></p>
+                <button id="btnSetupDeviceWifi" class="action-btn-outline" style="width:100%; justify-content:center; margin-top:8px;"><i class="fa-solid fa-tower-broadcast"></i> Set up the device's Wi-Fi network</button>
+                <p class="link-hint small">First time? Switch the device on, then tap <strong>Bluetooth</strong> within 10 minutes. The phone gets the device code automatically and Wi-Fi connects by itself; you can also choose the device's Wi-Fi network there.</p>
             </div>
 
             <!-- Bluetooth -->
@@ -162,19 +163,9 @@
                 <p class="link-hint small link-msg" id="bleMsg" role="status"></p>
             </div>
 
-            <!-- Local Wi-Fi (same network) -->
-            <div class="link-panel fade-in-up" id="wifiSetup" style="display: none;">
-                <p class="link-hint"><i class="fa-solid fa-wifi text-green"></i> Same Wi-Fi network as the device.</p>
-                <div class="ip-input-container">
-                    <input type="text" id="ipAddress" class="input-field glow-focus" placeholder="Device IP address, e.g. 192.168.1.42" style="margin-bottom:0;">
-                    <button id="btnConnectWiFi" class="action-btn gradient-green">Connect</button>
-                </div>
-                <p class="link-hint small link-msg" id="localMsg" role="status"></p>
-            </div>
-
             <div class="card glass-panel connection-card fade-in-up" style="animation-delay: 0.1s;">
                 <div class="conn-left">
-                    <div class="icon-circle glow-red" id="connIcon"><i class="fa-solid fa-globe"></i></div>
+                    <div class="icon-circle glow-red" id="connIcon"><i class="fa-solid fa-wifi"></i></div>
                     <div class="conn-info">
                         <h3 id="connStatus" class="text-red">Disconnected</h3>
                         <p id="connDetail">ESP32-P4 + RD-03D</p>
@@ -185,15 +176,14 @@
                     <button class="btn-disconnect hover-scale" id="btnDisconnect" disabled>Disconnect</button>
                 </div>
                 <div class="link-chips">
-                    <span class="link-chip" id="chipRemote"><span class="chip-dot"></span>Remote</span>
+                    <span class="link-chip" id="chipWiFi"><span class="chip-dot"></span>Wi-Fi</span>
                     <span class="link-chip" id="chipBLE"><span class="chip-dot"></span>Bluetooth</span>
-                    <span class="link-chip" id="chipLocal"><span class="chip-dot"></span>Local</span>
                     <span class="link-chip chip-metric" id="chipLatency" title="Round-trip time to the device"><i class="fa-solid fa-bolt"></i> <span>–</span></span>
                     <span class="link-chip chip-metric" id="chipAge" title="Time since the last update from the device"><i class="fa-regular fa-clock"></i> <span>–</span></span>
                 </div>
             </div>
 
-            <!-- Device Wi-Fi setup (over Bluetooth or Remote) -->
+            <!-- Device Wi-Fi setup (over Bluetooth or Wi-Fi) -->
             <div class="card glass-panel fade-in-up" id="deviceWifiCard" style="display: none;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <h3 style="margin:0; font-size:1.05rem;"><i class="fa-solid fa-tower-broadcast text-cyan"></i> Device Wi-Fi</h3>
@@ -572,9 +562,9 @@
                 <div class="stat-item glass-sub-panel" style="flex-direction: column; align-items: stretch; gap: 10px;">
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <div class="icon-bg glow-cyan"><i class="fa-solid fa-globe text-cyan"></i></div>
-                        <div><strong class="text-main">Device Link (Remote)</strong><br><small class="text-muted">Broker shared with the device firmware (CONFIG_LIVE_MQTT_URI)</small></div>
+                        <div><strong class="text-main">Device Link (Wi-Fi)</strong><br><small class="text-muted">Device code and the message server shared with the device firmware (CONFIG_LIVE_MQTT_URI)</small></div>
                     </div>
-                    <input type="text" id="setPairCode" class="input-field glow-focus" placeholder="Pairing code" style="margin-bottom:0;" spellcheck="false">
+                    <input type="text" id="setPairCode" class="input-field glow-focus" placeholder="Device code" style="margin-bottom:0;" spellcheck="false">
                     <input type="text" id="setBroker" class="input-field glow-focus" placeholder="wss://broker.emqx.io:8084/mqtt" style="margin-bottom:0;" spellcheck="false">
                     <div style="display:flex; gap:10px;">
                         <input type="text" id="setBrokerUser" class="input-field glow-focus" placeholder="Broker user (optional)" style="margin-bottom:0;" autocomplete="off">
