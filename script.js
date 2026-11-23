@@ -951,22 +951,25 @@ const linkUI = {
         btnWifi.classList.toggle('active', open);
         if (open) await this.scan();
     },
-    // Reach the device: Wi-Fi (device code) first, Bluetooth when there is no code or it is offline.
+    // Wi-Fi and Bluetooth are separate: Wi-Fi reaches the device only over the internet / Wi-Fi,
+    // using the device code. (If Bluetooth is already connected the list can use it too.)
     async reach() {
         if (deviceReachable()) return true;
         const st = deviceLink.settings;
-        if (st.code) {
-            connMsg('Connecting…');
-            deviceLink.updateSettings({ autoRemote: true });
-            if (deviceLink.state.remote !== 'on') deviceLink.connectRemote();
-            if (await waitFor(deviceReachable, 9000)) { connMsg(''); return true; }
+        const codeRow = document.getElementById('codeRow');
+        if (!st.code) {
+            codeRow.hidden = false;
+            pairCodeInput.focus();
+            connMsg('Enter the device code.');
+            return false;
         }
-        if (deviceLink.bleSupported()) {
-            connMsg(st.code ? 'Device offline. Tap Bluetooth near the device.' : 'Tap Bluetooth near the device.', 'error');
-        } else {
-            document.getElementById('codeRow').hidden = false;
-            connMsg(st.code ? 'Device offline.' : 'Enter the device code.', 'error');
-        }
+        connMsg('Connecting…');
+        deviceLink.updateSettings({ autoRemote: true });
+        if (deviceLink.state.remote !== 'on') deviceLink.connectRemote();
+        if (await waitFor(deviceReachable, 10000)) { connMsg(''); return true; }
+        if (deviceLink.state.remote === 'on' && deviceLink.state.deviceOnline === false) connMsg('Device offline. Check that it is on and on Wi-Fi.', 'error');
+        else connMsg('Cannot reach the device.', 'error');
+        codeRow.hidden = false;
         return false;
     },
     async scan() {
@@ -1055,11 +1058,11 @@ deviceLink.on('state', (st) => linkUI.render(st));
 deviceLink.on('live', (msg, raw) => updateUI(raw || msg));   // raw text: the sensor card shows the packet
 deviceLink.on('status', (st) => linkUI.renderStatus(st));
 deviceLink.on('paired', () => { linkUI.fillSettingsForm(); });
-deviceLink.on('need-pairing', () => { connMsg('Tap Bluetooth near the device.'); });
+deviceLink.on('need-pairing', () => { document.getElementById('codeRow').hidden = false; connMsg('Enter the device code.'); });
 deviceLink.on('decrypt-error', () => { connMsg('Wrong device code.', 'error'); });
 deviceLink.on('scan', (aps) => linkUI.onScan(aps));
 deviceLink.on('ack', (m) => {
-    if (m.cmd === 'pair' && !m.ok) return connMsg('Restart the device, then tap Bluetooth.', 'error');
+    if (m.cmd === 'pair' && !m.ok) return connMsg('Pairing closed. Restart the device to pair again.', 'error');
     if (m.cmd === 'wifi' && !m.ok) { linkUI.joining = null; linkUI.renderList(); connMsg(m.msg || 'Could not change network.', 'error'); }
 });
 
