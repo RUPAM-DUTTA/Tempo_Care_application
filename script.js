@@ -867,6 +867,12 @@ const wifiPanel = document.getElementById('wifiPanel');
 const wifiList = document.getElementById('wifiList');
 const pairCodeInput = document.getElementById('pairCode');
 
+// Accepts the code as typed from the device screen: any case, spaces, with or without the dash.
+function normCode(v) {
+    const c = String(v || '').toUpperCase().replace(/[\s_]+/g, '');
+    const m = /^(TC[0-9A-F]{12})-?([0-9A-Z]{6,32})$/.exec(c);
+    return m ? m[1] + '-' + m[2] : c;
+}
 function linkEscape(t) { return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function connMsg(text, kind) {
     const el = document.getElementById('connMsg');
@@ -897,7 +903,7 @@ const linkUI = {
         f('setPairCode', st.code); f('setBroker', st.broker); f('setBrokerUser', st.user); f('setBrokerPass', st.pass);
     },
     saveSettings() {
-        const code = document.getElementById('setPairCode').value.trim().toUpperCase();
+        const code = normCode(document.getElementById('setPairCode').value);
         if (code && !deviceLink.parseCode(code)) return alert('Invalid device code.');
         const broker = document.getElementById('setBroker').value.trim() || 'wss://broker.emqx.io:8084/mqtt';
         if (!/^wss?:\/\//.test(broker)) return alert('The server must start with wss://');
@@ -1073,7 +1079,7 @@ wifiList.addEventListener('click', (e) => {
     if (row) linkUI.pick(row.closest('.wifi-item'));
 });
 document.getElementById('btnCodeConnect').addEventListener('click', () => {
-    const code = pairCodeInput.value.trim().toUpperCase();
+    const code = normCode(pairCodeInput.value);
     if (!deviceLink.parseCode(code)) return connMsg('Invalid device code.', 'error');
     document.getElementById('codeRow').hidden = true;
     deviceLink.updateSettings({ code, autoRemote: true });
