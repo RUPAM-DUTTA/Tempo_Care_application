@@ -86,7 +86,7 @@
             </div>
 
             <div id="formSignup" class="fade-in-up" style="display: none; text-align: left;">
-                <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 15px; text-align: center;">Register your family. Everyone will log in using their own phone number and a single <strong>shared family password</strong>.</p>
+                <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 15px; text-align: center;">Each member logs in with their phone number and the <strong>family password</strong>.</p>
                 
                 <div id="primaryFamilyMember">
                     <input type="text" id="signupName" class="input-field glow-focus" placeholder="Full Name *">
@@ -139,70 +139,35 @@
         <div id="viewDashboard" class="view-section active">
           <div class="dashboard-layout">
           <div class="dashboard-main">
-            <div class="toggle-container glass-panel" id="connToggleContainer">
-                <button class="toggle-btn active" id="tabWiFi"><i class="fa-solid fa-wifi"></i> Wi-Fi</button>
-                <button class="toggle-btn" id="tabBLE"><i class="fa-brands fa-bluetooth-b"></i> Bluetooth</button>
-            </div>
-
-            <!-- Wi-Fi: the device is on Wi-Fi; this phone can be on the same network or any other one -->
-            <div class="link-panel fade-in-up" id="wifiSetup">
-                <p class="link-hint"><i class="fa-solid fa-wifi text-green"></i> Connect to the device over its Wi-Fi. Works when this phone is on the same Wi-Fi or on a different network (mobile data).</p>
-                <div class="ip-input-container">
-                    <input type="text" id="pairCode" class="input-field glow-focus" placeholder="Device code, e.g. TC1A2B3C4D5E6F-K7P2QX9MAB" autocomplete="off" spellcheck="false" style="margin-bottom:0;">
-                    <button id="btnConnectWiFi" class="action-btn gradient-green">Connect</button>
-                </div>
-                <p class="link-hint small link-msg" id="wifiMsg" role="status"></p>
-                <button id="btnSetupDeviceWifi" class="action-btn-outline" style="width:100%; justify-content:center; margin-top:8px;"><i class="fa-solid fa-tower-broadcast"></i> Set up the device's Wi-Fi network</button>
-                <p class="link-hint small">First time? Switch the device on, then tap <strong>Bluetooth</strong> within 10 minutes. The phone gets the device code automatically and Wi-Fi connects by itself; you can also choose the device's Wi-Fi network there.</p>
-            </div>
-
-            <!-- Bluetooth -->
-            <div class="link-panel fade-in-up" id="bleSetup" style="display: none;">
-                <p class="link-hint"><i class="fa-brands fa-bluetooth-b text-blue"></i> Next to the device. Also used to pair and to set the device's Wi-Fi.</p>
-                <button id="btnConnectBLE" class="action-btn gradient-blue" style="width:100%; justify-content:center;"><i class="fa-brands fa-bluetooth-b"></i> Find &amp; connect device</button>
-                <p class="link-hint small link-msg" id="bleMsg" role="status"></p>
-            </div>
-
-            <div class="card glass-panel connection-card fade-in-up" style="animation-delay: 0.1s;">
-                <div class="conn-left">
+            <div class="card glass-panel connection-card fade-in-up" id="connCard">
+                <div class="conn-top">
                     <div class="icon-circle glow-red" id="connIcon"><i class="fa-solid fa-wifi"></i></div>
                     <div class="conn-info">
                         <h3 id="connStatus" class="text-red">Disconnected</h3>
-                        <p id="connDetail">ESP32-P4 + RD-03D</p>
+                        <p id="connDetail"></p>
                     </div>
-                </div>
-                <div class="conn-right">
-                    <button class="btn-icon hover-scale" id="btnDeviceWifi" title="Device Wi-Fi" disabled><i class="fa-solid fa-sliders"></i></button>
                     <button class="btn-disconnect hover-scale" id="btnDisconnect" disabled>Disconnect</button>
                 </div>
-                <div class="link-chips">
-                    <span class="link-chip" id="chipWiFi"><span class="chip-dot"></span>Wi-Fi</span>
-                    <span class="link-chip" id="chipBLE"><span class="chip-dot"></span>Bluetooth</span>
-                    <span class="link-chip chip-metric" id="chipLatency" title="Round-trip time to the device"><i class="fa-solid fa-bolt"></i> <span>–</span></span>
-                    <span class="link-chip chip-metric" id="chipAge" title="Time since the last update from the device"><i class="fa-regular fa-clock"></i> <span>–</span></span>
+                <div class="conn-buttons">
+                    <button class="conn-btn" id="btnWifi" aria-expanded="false"><i class="fa-solid fa-wifi"></i><span>Wi-Fi</span><span class="conn-dot" id="dotWifi"></span></button>
+                    <button class="conn-btn" id="btnBle"><i class="fa-brands fa-bluetooth-b"></i><span>Bluetooth</span><span class="conn-dot" id="dotBle"></span></button>
                 </div>
-            </div>
-
-            <!-- Device Wi-Fi setup (over Bluetooth or Wi-Fi) -->
-            <div class="card glass-panel fade-in-up" id="deviceWifiCard" style="display: none;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <h3 style="margin:0; font-size:1.05rem;"><i class="fa-solid fa-tower-broadcast text-cyan"></i> Device Wi-Fi</h3>
-                    <button class="btn-back" id="btnCloseDeviceWifi"><i class="fa-solid fa-times"></i></button>
+                <div class="wifi-panel" id="wifiPanel" hidden>
+                    <div class="wifi-head">
+                        <span>Wi-Fi networks</span>
+                        <button class="wifi-icon-btn" id="btnRescan" title="Search again" aria-label="Search again"><i class="fa-solid fa-rotate-right"></i></button>
+                    </div>
+                    <ul class="wifi-list" id="wifiList"></ul>
                 </div>
-                <p class="link-hint" id="devNetInfo">Current network: –</p>
-                <div class="ip-input-container">
-                    <select id="devWifiSsidList" class="input-field glow-focus" style="margin-bottom:0;"><option value="">Scan for networks…</option></select>
-                    <button id="btnScanWifi" class="action-btn-outline" style="padding: 10px 14px;"><i class="fa-solid fa-magnifying-glass"></i> Scan</button>
+                <div class="code-row" id="codeRow" hidden>
+                    <input type="text" id="pairCode" class="input-field glow-focus" placeholder="Device code" autocomplete="off" spellcheck="false">
+                    <button id="btnCodeConnect" class="action-btn gradient-green">Connect</button>
                 </div>
-                <input type="text" id="devWifiSsid" class="input-field glow-focus" placeholder="Network name (SSID)" style="margin-top:10px;">
-                <input type="password" id="devWifiPass" class="input-field glow-focus" placeholder="Password (empty for an open network)">
-                <button id="btnSendWifi" class="action-btn gradient-blue" style="width:100%; justify-content:center;"><i class="fa-solid fa-paper-plane"></i> Move device to this network</button>
-                <p class="link-hint small">2.4 GHz networks only. If the device cannot join the new network it falls back to the previous one automatically, so it is never lost.</p>
-                <p class="link-hint small" id="devWifiMsg"></p>
+                <p class="conn-msg" id="connMsg" role="status"></p>
             </div>
 
             <div class="card glass-panel recording-card fade-in-up" style="animation-delay: 0.15s;">
-                <label for="recordingProfile"><i class="fa-solid fa-user-check text-cyan"></i> This sensor is watching</label>
+                <label for="recordingProfile"><i class="fa-solid fa-user-check text-cyan"></i> Watching</label>
                 <select id="recordingProfile" class="input-field"><option value="">Log in to select a person</option></select>
                 <p id="recordingStatus" class="text-muted" role="status"></p>
             </div>
@@ -269,23 +234,23 @@
                 <div class="sensor-header">
                     <h2><i class="fa-solid fa-satellite-dish text-cyan"></i> Live Sensor Data</h2>
                     <div class="sensor-actions">
-                        <span id="sensorRate" class="text-muted" role="status">No data yet. Connect the sensor on this page.</span>
+                        <span id="sensorRate" class="text-muted" role="status"></span>
                         <button type="button" id="sensorPause" class="chip-action hover-scale"><i class="fa-solid fa-pause"></i> Pause</button>
                         <button type="button" id="sensorClear" class="chip-action hover-scale"><i class="fa-solid fa-eraser"></i> Clear</button>
                     </div>
                 </div>
                 <div class="sensor-tiles">
-                    <div class="sensor-tile"><span class="sensor-label">Distance</span><strong id="sensorDistance">—</strong><small>metres from the sensor</small></div>
-                    <div class="sensor-tile"><span class="sensor-label">Velocity</span><strong id="sensorVelocity">—</strong><small>cm/s along the beam</small></div>
+                    <div class="sensor-tile"><span class="sensor-label">Distance (m)</span><strong id="sensorDistance">—</strong></div>
+                    <div class="sensor-tile"><span class="sensor-label">Velocity (cm/s)</span><strong id="sensorVelocity">—</strong></div>
                 </div>
                 <p id="sensorNote" class="sensor-note" hidden></p>
-                <p class="sensor-packet"><span class="text-muted">Last packet:</span> <code id="sensorPacket">none yet</code></p>
+                <p class="sensor-packet" hidden><code id="sensorPacket"></code></p>
                 <div class="sensor-charts">
                     <figure class="sensor-figure"><figcaption>Distance, last 60 s (m)</figcaption><div class="sensor-plot"><canvas id="sensorDistanceChart" role="img" aria-label="Distance over the last 60 seconds"></canvas></div></figure>
                     <figure class="sensor-figure"><figcaption>Velocity, last 60 s (cm/s)</figcaption><div class="sensor-plot"><canvas id="sensorVelocityChart" role="img" aria-label="Velocity over the last 60 seconds"></canvas></div></figure>
                 </div>
                 <details class="sensor-table">
-                    <summary>Recent samples (table)</summary>
+                    <summary>Recent samples</summary>
                     <div class="table-scroll">
                         <table>
                             <thead><tr><th>Time</th><th>Distance (mm)</th><th>Velocity (cm/s)</th></tr></thead>
@@ -313,7 +278,7 @@
                     <h2 style="margin: 0; color: var(--accent-red); display: flex; align-items: center; gap: 10px;"><i class="fa-solid fa-triangle-exclamation icon-shake-hover"></i> Activity Alerts</h2>
                     <button class="action-btn-outline glow-red-border hover-scale" style="padding: 6px 12px; font-size: 0.8rem; border-color: var(--accent-red); color: var(--accent-red);" onclick="appAlerts.triggerSimulatedAlert()"><i class="fa-solid fa-vial"></i> Simulate Alert</button>
                 </div>
-                <p class="text-muted" style="margin-bottom: 20px; font-size: 0.9rem;">Unusual activity instances are automatically logged to the database and dispatched via SMS.</p>
+                
                 <div id="alertsContainer"></div>
             </div>
         </div>
@@ -496,7 +461,7 @@
             <div class="card report-card fade-in-up">
                 <div class="report-title">
                     <h2><i class="fa-solid fa-file-medical"></i> Report for Doctor</h2>
-                    <p>A summary of the recorded activity with the health profile, ready to download or send.</p>
+                    <p>Activity summary with the health profile.</p>
                 </div>
                 <div class="report-form">
                     <label for="reportProfile">Person
@@ -562,7 +527,7 @@
                 <div class="stat-item glass-sub-panel" style="flex-direction: column; align-items: stretch; gap: 10px;">
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <div class="icon-bg glow-cyan"><i class="fa-solid fa-globe text-cyan"></i></div>
-                        <div><strong class="text-main">Device Link (Wi-Fi)</strong><br><small class="text-muted">Device code and the message server shared with the device firmware (CONFIG_LIVE_MQTT_URI)</small></div>
+                        <div><strong class="text-main">Device Link (Wi-Fi)</strong><br><small class="text-muted">Device code and server</small></div>
                     </div>
                     <input type="text" id="setPairCode" class="input-field glow-focus" placeholder="Device code" style="margin-bottom:0;" spellcheck="false">
                     <input type="text" id="setBroker" class="input-field glow-focus" placeholder="wss://broker.emqx.io:8084/mqtt" style="margin-bottom:0;" spellcheck="false">
@@ -586,7 +551,7 @@
                 <div class="stat-item glass-sub-panel" style="justify-content: space-between; flex-direction: column; align-items: flex-start; gap: 15px; border-color: rgba(239, 68, 68, 0.3);">
                     <div>
                         <strong class="text-main">Delete Account</strong><br>
-                        <small class="text-muted">Permanently delete your account, associated care profiles, health data, and alerts from the database.</small>
+                        <small class="text-muted">Deletes your account and all its data.</small>
                     </div>
                     <button class="action-btn-danger hover-scale" style="width: 100%; justify-content: center;" onclick="appAuth.deleteAccount()"><i class="fa-solid fa-trash"></i> Delete My Account & Data</button>
                 </div>
@@ -619,7 +584,6 @@
             <div style="display: flex; align-items: center; margin-bottom: 15px;" class="fade-in-up">
                 <h2 style="margin: 0; font-size: 1.5rem;" class="text-gradient-blue-purple"><i class="fa-solid fa-robot icon-float text-purple"></i> Ask TEMPO Care</h2>
             </div>
-            <p class="text-muted fade-in-up" style="margin-bottom: 20px; font-size: 0.95rem;">Understand your loved one's recorded activities, in everyday language. Answers are prepared on this computer using records from your care database.</p>
 
             <!-- Database-Integrated Chat Interface -->
             <div class="card glass-panel chat-card-wrapper fade-in-up" style="animation-delay: 0.1s;">
@@ -653,7 +617,7 @@
                     <span id="chatStatus" role="status">Open the assistant to check its connection</span>
                     <button type="button" class="chip-action" onclick="aiChat.open()">Refresh</button>
                 </div>
-                <p class="chat-scope-note">Answers use the person and dates above. Change the dates to ask about a different period. Times are shown in your computer's time zone.</p>
+                <p class="chat-scope-note">Uses the person and dates above.</p>
                 <div class="chat-chips-container custom-scrollbar">
                     <button class="chat-chip chat-chip-advice hover-scale-subtle" onclick="aiChat.askSuggested('Suggest ways to make their night-time bathroom trips safer.')">💡 Safer nights</button>
                     <button class="chat-chip chat-chip-advice hover-scale-subtle" onclick="aiChat.askSuggested('Based on their health profile, what daily routine and diet tips would you suggest?')">💡 Routine &amp; diet</button>
@@ -714,7 +678,7 @@
 
                 <div class="chat-box custom-scrollbar" id="chatContainer" role="log" aria-label="Care assistant conversation" aria-live="polite" aria-relevant="additions text">
                     <div class="chat-msg bot-msg pop-in">
-                        Choose a person and a period, then ask about their recorded activities. Each answer includes the records used to prepare it.
+                        Ask about their activity, or ask for a suggestion.
                     </div>
                 </div>
 
@@ -722,7 +686,7 @@
                     <input type="text" id="chatInput" class="input-field glow-focus" placeholder="Ask about their activity, or ask for a suggestion…" aria-label="Your question" maxlength="1200" autocomplete="off" style="margin-bottom: 0; flex: 1;">
                     <button id="chatSend" type="submit" class="action-btn gradient-purple hover-scale" aria-label="Send question" style="padding: 12px 18px; border-radius: 12px;"><i class="fa-solid fa-paper-plane slide-right-hover"></i></button>
                 </form>
-                <p class="chat-scope-note">AI answers can make mistakes. Check the supporting records. Activity logs cannot confirm current safety or diagnose a health condition.</p>
+                <p class="chat-scope-note">AI can make mistakes. Not a diagnosis.</p>
             </div>
         </div>
 

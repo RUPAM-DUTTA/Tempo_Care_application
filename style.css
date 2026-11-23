@@ -528,3 +528,48 @@ input:checked + .slider:before { transform: translateX(20px); box-shadow: -2px 2
 .chat-chip-advice { background: rgba(168, 85, 247, 0.12); color: #d8b4fe; border-color: rgba(168, 85, 247, 0.35); }
 .chat-msg.advice-msg { border-left: 3px solid #a855f7; }
 .chat-advice-note { color: #c4b5fd; }
+
+/* Device connection card: status, two buttons, Wi-Fi network list */
+#connCard { display: block; }
+.conn-top { display: flex; align-items: center; gap: 14px; }
+.conn-top .conn-info { flex: 1; min-width: 0; }
+.conn-top .conn-info p:empty { display: none; }
+.conn-top .conn-info p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conn-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+.conn-btn { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: var(--text-main); font: 600 0.95rem 'Inter', sans-serif; cursor: pointer; transition: background .2s, border-color .2s; }
+.conn-btn i { font-size: 1.15rem; color: var(--accent-cyan); }
+.conn-btn#btnBle i { color: var(--accent-blue); }
+.conn-btn:hover:not(:disabled), .conn-btn.active { background: rgba(6,182,212,0.12); border-color: rgba(6,182,212,0.45); }
+.conn-btn:disabled { opacity: .6; cursor: wait; }
+.conn-dot { position: absolute; top: 9px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: #475569; }
+.conn-dot.on { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
+.conn-dot.busy { background: var(--accent-orange); animation: pulseDot 1.2s infinite; }
+.conn-msg { margin: 10px 0 0; font-size: .85rem; color: var(--text-muted); min-height: 0; }
+.conn-msg:empty { display: none; }
+.conn-msg.is-ok { color: var(--accent-green); }
+.conn-msg.is-error { color: var(--accent-orange); }
+.code-row { display: flex; gap: 8px; margin-top: 12px; }
+.code-row .input-field { margin: 0; flex: 1; min-width: 0; }
+
+.wifi-panel { margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; }
+.wifi-head { display: flex; justify-content: space-between; align-items: center; font-size: .8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.wifi-icon-btn { background: none; border: 0; color: var(--text-muted); cursor: pointer; padding: 6px 8px; border-radius: 8px; font-size: .95rem; }
+.wifi-icon-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.06); }
+.wifi-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
+.wifi-empty { padding: 14px 4px; color: var(--text-muted); font-size: .9rem; }
+.wifi-item + .wifi-item { border-top: 1px solid rgba(255,255,255,0.05); }
+.wifi-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 4px; background: none; border: 0; color: var(--text-main); font: 500 .95rem 'Inter', sans-serif; cursor: pointer; text-align: left; border-radius: 8px; }
+.wifi-row:hover { background: rgba(255,255,255,0.04); }
+.wifi-item.current .wifi-row { cursor: default; }
+.wifi-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wifi-lock { color: var(--text-muted); font-size: .8rem; }
+.wifi-tag { font-size: .72rem; color: var(--text-muted); }
+.wifi-tag.on { color: var(--accent-green); font-weight: 600; }
+.wifi-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; width: 18px; }
+.wifi-bars i { display: block; width: 3px; background: rgba(255,255,255,0.18); border-radius: 1px; }
+.wifi-bars i:nth-child(1) { height: 25%; } .wifi-bars i:nth-child(2) { height: 50%; } .wifi-bars i:nth-child(3) { height: 75%; } .wifi-bars i:nth-child(4) { height: 100%; }
+.wifi-bars.b1 i:nth-child(-n+1), .wifi-bars.b2 i:nth-child(-n+2), .wifi-bars.b3 i:nth-child(-n+3), .wifi-bars.b4 i { background: var(--accent-cyan); }
+.wifi-pass { display: flex; gap: 8px; padding: 0 4px 12px 34px; }
+.wifi-pass .input-field { margin: 0; padding: 10px 12px; flex: 1; min-width: 0; }
+.wifi-pass .action-btn { padding: 10px 16px; }
+.code-row[hidden], .wifi-panel[hidden], .sensor-packet[hidden] { display: none; }

@@ -854,105 +854,184 @@ navItems.forEach(item => {
 });
 
 // --- Hardware Tab Logic & Connectivity (see device-link.js) ---
-// Two ways to reach the device: Wi-Fi and Bluetooth.
-// Wi-Fi uses the device code: messages travel over the device's Wi-Fi through an encrypted message
-// server, so it works whether this phone is on the same Wi-Fi or on another network. When the app is
-// opened from http:// on the same network (start.cmd), an IP address can be typed instead for a direct
-// connection; browsers block that on https:// pages.
-const btnTabBLE = document.getElementById('tabBLE');
-const btnTabWiFi = document.getElementById('tabWiFi');
-const bleSetup = document.getElementById('bleSetup');
-const wifiSetup = document.getElementById('wifiSetup');
+// Two buttons: Wi-Fi and Bluetooth.
+// Wi-Fi: reaches the device (over its Wi-Fi with the device code, or Bluetooth when it is offline),
+// lists the networks the device can see and moves it to the one you tap. Networks the device has
+// joined before connect without a password; new secured ones ask for it once.
 const connStatus = document.getElementById('connStatus');
 const connDetail = document.getElementById('connDetail');
 const btnDisconnect = document.getElementById('btnDisconnect');
-const btnConnectWiFi = document.getElementById('btnConnectWiFi');
+const btnWifi = document.getElementById('btnWifi');
+const btnBle = document.getElementById('btnBle');
+const wifiPanel = document.getElementById('wifiPanel');
+const wifiList = document.getElementById('wifiList');
 const pairCodeInput = document.getElementById('pairCode');
-const directAllowed = location.protocol !== 'https:' || /^(localhost|127\.)/.test(location.hostname);
-if (directAllowed) pairCodeInput.placeholder = 'Device code, or IP address on the same Wi-Fi';
 
 function linkEscape(t) { return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-function looksLikeAddress(v) { return /^(wss?:\/\/)?(localhost|\d{1,3}(\.\d{1,3}){3}|[a-z0-9-]+\.local)(:\d+)?\/?$/i.test(v); }
+function connMsg(text, kind) {
+    const el = document.getElementById('connMsg');
+    el.textContent = text || '';
+    el.className = 'conn-msg' + (kind ? ' is-' + kind : '');
+}
+function deviceReachable() {
+    const st = deviceLink.state;
+    return st.ble === 'on' || st.local === 'on' || (st.remote === 'on' && st.deviceOnline === true);
+}
+function waitFor(test, ms) {
+    return new Promise(resolve => {
+        if (test()) return resolve(true);
+        const t0 = Date.now();
+        const iv = setInterval(() => {
+            if (test()) { clearInterval(iv); resolve(true); }
+            else if (Date.now() - t0 > ms) { clearInterval(iv); resolve(false); }
+        }, 200);
+    });
+}
 
 const linkUI = {
-    tab: 'wifi',
-    showTab(tab) {
-        this.tab = tab;
-        btnTabWiFi.classList.toggle('active', tab === 'wifi');
-        btnTabBLE.classList.toggle('active', tab === 'ble');
-        wifiSetup.style.display = tab === 'wifi' ? 'block' : 'none';
-        bleSetup.style.display = tab === 'ble' ? 'block' : 'none';
-        if (tab === 'ble' && !deviceLink.bleSupported()) linkMsg('bleMsg', 'This browser has no Web Bluetooth. Use Chrome or Edge on Windows, macOS, Android or ChromeOS (not iPhone/Safari/Firefox).', 'error');
-    },
+    aps: [], joining: null, pending: null,
     fillSettingsForm() {
         const st = deviceLink.settings;
-        if (!looksLikeAddress(pairCodeInput.value.trim())) pairCodeInput.value = st.code || '';
+        pairCodeInput.value = st.code || '';
         const f = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
         f('setPairCode', st.code); f('setBroker', st.broker); f('setBrokerUser', st.user); f('setBrokerPass', st.pass);
     },
     saveSettings() {
         const code = document.getElementById('setPairCode').value.trim().toUpperCase();
-        if (code && !deviceLink.parseCode(code)) return alert('That device code does not look right. It is shown in the device log as TCxxxxxxxxxxxx-XXXXXXXXXX.');
+        if (code && !deviceLink.parseCode(code)) return alert('Invalid device code.');
         const broker = document.getElementById('setBroker').value.trim() || 'wss://broker.emqx.io:8084/mqtt';
-        if (!/^wss?:\/\//.test(broker)) return alert('The server URL must start with wss:// (or ws:// for testing).');
+        if (!/^wss?:\/\//.test(broker)) return alert('The server must start with wss://');
         deviceLink.updateSettings({ code, broker,
             user: document.getElementById('setBrokerUser').value.trim(),
             pass: document.getElementById('setBrokerPass').value });
         this.fillSettingsForm();
         if (code) deviceLink.connectRemote();
-        alert('Saved. Reconnecting to the device…');
+        alert('Saved.');
     },
-    // Called after login: reconnect to the paired device automatically
+    // After login: reconnect to the paired device automatically
     autoConnect() {
         this.fillSettingsForm();
         const st = deviceLink.settings;
         if (st.code && st.autoRemote) deviceLink.connectRemote();
-        this.showTab(st.code ? 'wifi' : (deviceLink.bleSupported() ? 'ble' : 'wifi'));
     },
     render(state) {
         const on = deviceLink.anyConnected();
         const busy = ['remote', 'ble', 'local'].some(k => state[k] === 'connecting');
-        const via = state.ble === 'on' ? 'Bluetooth' : (state.local === 'on' || state.remote === 'on') ? 'Wi-Fi' : '';
-        const wifiState = state.local === 'on' || state.remote === 'on' ? 'on'
-                        : state.local === 'connecting' || state.remote === 'connecting' ? 'connecting'
-                        : state.local === 'error' || state.remote === 'error' ? 'error' : 'off';
+        const wifiOn = state.local === 'on' || (state.remote === 'on' && state.deviceOnline !== false);
         const icon = document.getElementById('connIcon');
-        if (on && state.remote === 'on' && state.ble !== 'on' && state.local !== 'on' && state.deviceOnline === false) {
-            connStatus.innerText = 'Device offline';
-            connStatus.className = 'text-orange';
-            icon.className = 'icon-circle glow-orange';
-        } else if (on) {
-            connStatus.innerText = 'Connected · ' + via;
-            connStatus.className = 'text-green';
-            icon.className = 'icon-circle glow-green';
-        } else if (busy) {
-            connStatus.innerText = 'Connecting…';
-            connStatus.className = 'text-orange';
-            icon.className = 'icon-circle glow-orange';
-        } else {
-            connStatus.innerText = 'Disconnected';
-            connStatus.className = 'text-red';
-            icon.className = 'icon-circle glow-red';
-        }
-        icon.innerHTML = state.ble === 'on' ? '<i class="fa-brands fa-bluetooth-b"></i>' : '<i class="fa-solid fa-wifi"></i>';
-        const chip = (id, st) => { const el = document.getElementById(id); el.className = 'link-chip chip-' + st; };
-        chip('chipWiFi', state.remote === 'on' && state.local !== 'on' && state.deviceOnline === false ? 'error' : wifiState);
-        chip('chipBLE', state.ble);
+        let text = 'Disconnected', cls = 'red';
+        if (state.ble === 'on' || wifiOn) { text = 'Connected'; cls = 'green'; }
+        else if (state.remote === 'on' && state.deviceOnline === false) { text = 'Device offline'; cls = 'orange'; }
+        else if (busy) { text = 'Connecting…'; cls = 'orange'; }
+        connStatus.innerText = text;
+        connStatus.className = 'text-' + cls;
+        icon.className = 'icon-circle glow-' + cls;
+        icon.innerHTML = state.ble === 'on' && !wifiOn ? '<i class="fa-brands fa-bluetooth-b"></i>' : '<i class="fa-solid fa-wifi"></i>';
+        document.getElementById('dotWifi').className = 'conn-dot' + (wifiOn ? ' on' : state.remote === 'connecting' ? ' busy' : '');
+        document.getElementById('dotBle').className = 'conn-dot' + (state.ble === 'on' ? ' on' : state.ble === 'connecting' ? ' busy' : '');
         btnDisconnect.disabled = !(on || busy);
-        document.getElementById('btnDeviceWifi').disabled = !(state.ble === 'on' || state.remote === 'on' || state.local === 'on');
         const badge = document.getElementById('hwLinkBadge');
-        if (badge) { badge.innerText = on ? via : 'Offline'; badge.className = on ? 'badge-green pulse' : 'badge-orange'; }
-        if (!on && !busy) resetLiveTiles();
+        if (badge) { badge.innerText = text; badge.className = cls === 'green' ? 'badge-green pulse' : 'badge-orange'; }
+        if (!on && !busy) { resetLiveTiles(); connDetail.innerText = ''; }
     },
     renderStatus(st) {
-        const parts = [];
-        if (st.name) parts.push(st.name);
-        if (st.ssid) parts.push((st.wifi ? 'Wi-Fi ' : 'joining ') + st.ssid + (st.rssi ? ` (${st.rssi} dBm)` : ''));
-        if (st.cloud) parts.push('Cloud: ' + st.cloud);
-        connDetail.innerText = parts.join(' · ') || 'ESP32-P4 + RD-03D';
-        document.getElementById('devNetInfo').innerText = st.ssid
-            ? `Current network: ${st.ssid}${st.wifi ? ' — connected' : ' — not connected'}${st.ip ? ' · IP ' + st.ip : ''}`
-            : 'Current network: none';
+        this.status = st;
+        connDetail.innerText = st.ssid ? (st.wifi ? st.ssid : st.ssid + ' · joining') : '';
+        if (this.joining && st.ssid === this.joining && st.wifi) {
+            connMsg('Connected to ' + this.joining, 'ok');
+            this.joining = null; clearTimeout(this.joinTimer);
+        }
+        if (!wifiPanel.hidden) this.renderList();
+    },
+
+    async openWifi() {
+        const open = wifiPanel.hidden;
+        wifiPanel.hidden = !open;
+        btnWifi.setAttribute('aria-expanded', String(open));
+        btnWifi.classList.toggle('active', open);
+        if (open) await this.scan();
+    },
+    // Reach the device: Wi-Fi (device code) first, Bluetooth when there is no code or it is offline.
+    async reach() {
+        if (deviceReachable()) return true;
+        const st = deviceLink.settings;
+        if (st.code) {
+            connMsg('Connecting…');
+            deviceLink.updateSettings({ autoRemote: true });
+            if (deviceLink.state.remote !== 'on') deviceLink.connectRemote();
+            if (await waitFor(deviceReachable, 9000)) { connMsg(''); return true; }
+        }
+        if (deviceLink.bleSupported()) {
+            connMsg(st.code ? 'Device offline. Tap Bluetooth near the device.' : 'Tap Bluetooth near the device.', 'error');
+        } else {
+            document.getElementById('codeRow').hidden = false;
+            connMsg(st.code ? 'Device offline.' : 'Enter the device code.', 'error');
+        }
+        return false;
+    },
+    async scan() {
+        wifiList.innerHTML = '<li class="wifi-empty"><i class="fa-solid fa-spinner fa-spin"></i> Searching…</li>';
+        if (!await this.reach()) { wifiList.innerHTML = ''; return; }
+        const got = new Promise(resolve => { this.pending = resolve; setTimeout(() => resolve(null), 12000); });
+        try { await deviceLink.scanWifi(); } catch (e) { this.pending = null; wifiList.innerHTML = ''; return connMsg(e.message, 'error'); }
+        const aps = await got;
+        this.pending = null;
+        if (aps === null) { wifiList.innerHTML = ''; return connMsg('No answer from the device.', 'error'); }
+        this.aps = aps;
+        this.renderList();
+    },
+    onScan(aps) { if (this.pending) this.pending(aps); },
+    renderList() {
+        const cur = this.status && this.status.wifi ? this.status.ssid : '';
+        if (!this.aps.length) { wifiList.innerHTML = '<li class="wifi-empty">No networks found</li>'; return; }
+        const bars = r => r >= -55 ? 4 : r >= -67 ? 3 : r >= -78 ? 2 : 1;
+        const sorted = this.aps.slice().sort((a, b) => (b.s === cur) - (a.s === cur) || (!!b.k - !!a.k) || b.r - a.r);
+        wifiList.innerHTML = sorted.map(a => {
+            const tag = a.s === cur ? '<span class="wifi-tag on">Connected</span>'
+                      : a.s === this.joining ? '<span class="wifi-tag">Joining…</span>'
+                      : a.k ? '<span class="wifi-tag">Saved</span>' : '';
+            return `<li class="wifi-item${a.s === cur ? ' current' : ''}" data-ssid="${linkEscape(a.s)}" data-open="${a.o ? 1 : 0}" data-known="${a.k ? 1 : 0}">
+                <button class="wifi-row" type="button">
+                    <span class="wifi-bars b${bars(a.r)}" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                    <span class="wifi-name">${linkEscape(a.s)}</span>${tag}
+                    ${a.o ? '' : '<i class="fa-solid fa-lock wifi-lock" aria-label="secured"></i>'}
+                </button>
+            </li>`;
+        }).join('');
+    },
+    pick(li) {
+        const ssid = li.dataset.ssid;
+        const cur = this.status && this.status.wifi ? this.status.ssid : '';
+        if (ssid === cur) return;
+        wifiList.querySelectorAll('.wifi-pass').forEach(el => el.remove());
+        if (li.dataset.known === '1' || li.dataset.open === '1') return this.join(ssid, '');
+        const form = document.createElement('form');
+        form.className = 'wifi-pass';
+        form.innerHTML = '<input type="password" class="input-field" placeholder="Password" autocomplete="current-password" minlength="8" required>' +
+                         '<button class="action-btn gradient-blue" type="submit">Join</button>';
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const pass = form.querySelector('input').value;
+            if (pass.length < 8) return connMsg('At least 8 characters.', 'error');
+            form.remove();
+            this.join(ssid, pass);
+        });
+        li.append(form);
+        form.querySelector('input').focus();
+    },
+    async join(ssid, pass) {
+        try {
+            await deviceLink.setWifi(ssid, pass);
+        } catch (e) { return connMsg(e.message, 'error'); }
+        this.joining = ssid;
+        connMsg('Joining ' + ssid + '…');
+        this.renderList();
+        clearTimeout(this.joinTimer);
+        this.joinTimer = setTimeout(() => {
+            if (this.joining !== ssid) return;
+            this.joining = null; this.renderList();
+            connMsg('Could not join ' + ssid + '. Check the password.', 'error');
+        }, 40000);
     }
 };
 
@@ -975,145 +1054,63 @@ function setDisconnected() { resetLiveTiles(); }
 deviceLink.on('state', (st) => linkUI.render(st));
 deviceLink.on('live', (msg, raw) => updateUI(raw || msg));   // raw text: the sensor card shows the packet
 deviceLink.on('status', (st) => linkUI.renderStatus(st));
-deviceLink.on('rtt', ({ ms }) => { document.querySelector('#chipLatency span').innerText = ms + ' ms'; });
-deviceLink.on('tick', ({ ageMs }) => {
-    const el = document.querySelector('#chipAge span');
-    if (ageMs == null) { el.innerText = '–'; return; }
-    const s = Math.round(ageMs / 1000);
-    el.innerText = s < 1 ? 'now' : s + ' s ago';
-    document.getElementById('chipAge').classList.toggle('chip-error', ageMs > deviceLink.STALE_AFTER_MS);
-});
-deviceLink.on('paired', (msg) => {
-    pairCodeInput.value = msg.code;
-    linkUI.fillSettingsForm();
-    connDetail.innerText = 'Paired: ' + msg.code + ' — Wi-Fi now works from any network';
-});
-deviceLink.on('need-pairing', () => {
-    connDetail.innerText = 'Enter the device code, or pair once over Bluetooth';
-});
-deviceLink.on('decrypt-error', () => {
-    connDetail.innerText = 'Messages cannot be decrypted — check the device code';
-});
-deviceLink.on('warn', (m) => { connDetail.innerText = m; });
-deviceLink.on('scan', (aps) => {
-    const sel = document.getElementById('devWifiSsidList');
-    sel.innerHTML = '<option value="">' + (aps.length ? 'Choose a network…' : 'No networks found') + '</option>' +
-        aps.map(a => `<option value="${linkEscape(a.s)}">${linkEscape(a.s)} (${a.r} dBm${a.o ? ', open' : ''})</option>`).join('');
-    document.getElementById('devWifiMsg').innerText = aps.length ? `${aps.length} networks found.` : '';
-});
+deviceLink.on('paired', () => { linkUI.fillSettingsForm(); });
+deviceLink.on('need-pairing', () => { connMsg('Tap Bluetooth near the device.'); });
+deviceLink.on('decrypt-error', () => { connMsg('Wrong device code.', 'error'); });
+deviceLink.on('scan', (aps) => linkUI.onScan(aps));
 deviceLink.on('ack', (m) => {
-    if (m.cmd === 'pair' && !m.ok) {
-        connDetail.innerText = 'Pairing window closed — switch the device off and on, then connect over Bluetooth again (or type the code)';
-        return;
-    }
-    document.getElementById('devWifiMsg').innerText = (m.ok ? '✔ ' : '✖ ') + (m.msg || m.cmd);
+    if (m.cmd === 'pair' && !m.ok) return connMsg('Restart the device, then tap Bluetooth.', 'error');
+    if (m.cmd === 'wifi' && !m.ok) { linkUI.joining = null; linkUI.renderList(); connMsg(m.msg || 'Could not change network.', 'error'); }
 });
 
-btnTabWiFi.addEventListener('click', () => linkUI.showTab('wifi'));
-btnTabBLE.addEventListener('click', () => linkUI.showTab('ble'));
-
-btnConnectWiFi.addEventListener('click', () => {
-    const value = pairCodeInput.value.trim();
-    if (looksLikeAddress(value)) {
-        if (!directAllowed && !/^(wss?:\/\/)?(localhost|127\.)/.test(value)) {
-            return linkMsg('wifiMsg', 'On this secure page enter the device code instead of an IP address (browsers block direct connections from https:// pages). The code works on the same Wi-Fi too.', 'error');
-        }
-        linkMsg('wifiMsg', 'Connecting directly to ' + value + ' …');
-        try { deviceLink.connectLocal(value); } catch (e) { linkMsg('wifiMsg', e.message, 'error'); }
-        return;
-    }
-    const code = value.toUpperCase();
-    if (!deviceLink.parseCode(code)) return linkMsg('wifiMsg', 'Enter the device code (TCxxxxxxxxxxxx-XXXXXXXXXX, shown in the device log), or pair once over Bluetooth to fill it in automatically.', 'error');
-    linkMsg('wifiMsg', 'Connecting over Wi-Fi…');
+btnWifi.addEventListener('click', () => linkUI.openWifi());
+document.getElementById('btnRescan').addEventListener('click', () => linkUI.scan());
+wifiList.addEventListener('click', (e) => {
+    const row = e.target.closest('.wifi-row');
+    if (row) linkUI.pick(row.closest('.wifi-item'));
+});
+document.getElementById('btnCodeConnect').addEventListener('click', () => {
+    const code = pairCodeInput.value.trim().toUpperCase();
+    if (!deviceLink.parseCode(code)) return connMsg('Invalid device code.', 'error');
+    document.getElementById('codeRow').hidden = true;
     deviceLink.updateSettings({ code, autoRemote: true });
     deviceLink.connectRemote();
+    if (!wifiPanel.hidden) linkUI.scan();
 });
-
-document.getElementById('btnSetupDeviceWifi').addEventListener('click', () => {
-    const card = document.getElementById('deviceWifiCard');
-    if (deviceLink.anyConnected()) { card.style.display = 'block'; card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return; }
-    linkUI.showTab('ble');
-    linkMsg('bleMsg', 'To choose the device\'s Wi-Fi network, connect over Bluetooth first (next to the device). The Wi-Fi settings open after it connects.');
-    linkUI.openWifiAfterBle = true;
-});
-
-function linkMsg(id, text, kind) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.textContent = text || '';
-    el.className = 'link-hint small link-msg' + (kind ? ' is-' + kind : '');
-}
 
 function bleErrorText(err) {
     const m = String((err && err.message) || '');
-    if (!deviceLink.bleSupported()) return m;
-    if (err && err.name === 'NotFoundError' && /cancel/i.test(m))
-        return 'No device chosen. If the list was empty: the device is off, too far away, or its Bluetooth has not started (check the device log for "live_ble: advertising").';
-    if (err && err.name === 'NotFoundError') return 'Bluetooth is off or not available on this computer. Turn Bluetooth on in the system settings and try again.';
-    if (err && err.name === 'SecurityError') return 'The browser blocked Bluetooth on this page. Open the app over https:// or http://localhost in Chrome or Edge.';
-    if (err && err.name === 'NetworkError') return 'The device was found but the connection dropped. Move closer and try again.';
-    return m || 'Bluetooth connection failed.';
+    if (!deviceLink.bleSupported()) return 'Bluetooth needs Chrome or Edge.';
+    if (err && err.name === 'NotFoundError' && /cancel/i.test(m)) return 'No device chosen.';
+    if (err && err.name === 'NotFoundError') return 'Turn on Bluetooth.';
+    if (err && err.name === 'SecurityError') return 'Bluetooth blocked by the browser.';
+    if (err && err.name === 'NetworkError') return 'Connection dropped. Move closer.';
+    return m || 'Bluetooth failed.';
 }
 
-document.getElementById('btnConnectBLE').addEventListener('click', async () => {
-    const btn = document.getElementById('btnConnectBLE');
-    linkMsg('bleMsg', 'Choose your device in the browser window (ESP32-TempoCare-…)…');
-    btn.disabled = true;
+btnBle.addEventListener('click', async () => {
+    if (deviceLink.state.ble === 'on') return;
+    if (!deviceLink.bleSupported()) return connMsg(bleErrorText(), 'error');
+    btnBle.disabled = true;
+    connMsg('Choose your device…');
     try {
-        const name = await deviceLink.connectBLE();
-        linkMsg('bleMsg', 'Connected to ' + name + '.', 'ok');
+        await deviceLink.connectBLE();
+        connMsg('');
+        if (!wifiPanel.hidden) linkUI.scan();
     } catch (err) {
-        console.error("BLE Error:", err);
-        linkMsg('bleMsg', bleErrorText(err), 'error');
+        console.error('BLE Error:', err);
+        connMsg(bleErrorText(err), 'error');
     } finally {
-        btn.disabled = false;
-    }
-});
-
-deviceLink.on('state', (st) => {
-    if (st.remote === 'on' || st.local === 'on') linkMsg('wifiMsg', st.deviceOnline === false ? 'Connected, but the device is not online. Check that it is switched on and on Wi-Fi.' : 'Connected over Wi-Fi.', st.deviceOnline === false ? 'error' : 'ok');
-    else if (st.local === 'error' || (st.local === 'connecting' && st.localFailures > 0))
-        linkMsg('wifiMsg', 'Cannot reach the device at that address. Check that it is on the same Wi-Fi network and the IP is current. Retrying…', 'error');
-    if (st.ble === 'on' && linkUI.openWifiAfterBle) {
-        linkUI.openWifiAfterBle = false;
-        document.getElementById('deviceWifiCard').style.display = 'block';
+        btnBle.disabled = false;
     }
 });
 
 btnDisconnect.addEventListener('click', () => {
     deviceLink.updateSettings({ autoRemote: false });
     deviceLink.disconnectAll();
+    wifiPanel.hidden = true; btnWifi.classList.remove('active');
+    connMsg('');
     resetLiveTiles();
-});
-
-// Device Wi-Fi card
-document.getElementById('btnDeviceWifi').addEventListener('click', () => {
-    const card = document.getElementById('deviceWifiCard');
-    card.style.display = card.style.display === 'none' ? 'block' : 'none';
-});
-document.getElementById('btnCloseDeviceWifi').addEventListener('click', () => {
-    document.getElementById('deviceWifiCard').style.display = 'none';
-});
-document.getElementById('devWifiSsidList').addEventListener('change', (e) => {
-    if (e.target.value) document.getElementById('devWifiSsid').value = e.target.value;
-});
-document.getElementById('btnScanWifi').addEventListener('click', async () => {
-    document.getElementById('devWifiMsg').innerText = 'Scanning… (about 3 s)';
-    try { await deviceLink.scanWifi(); } catch (e) { document.getElementById('devWifiMsg').innerText = e.message; }
-});
-document.getElementById('btnSendWifi').addEventListener('click', async () => {
-    const ssid = document.getElementById('devWifiSsid').value.trim();
-    const pass = document.getElementById('devWifiPass').value;
-    if (!ssid) return alert('Enter or choose the network name.');
-    if (pass && pass.length < 8) return alert('Wi-Fi passwords are at least 8 characters.');
-    const via = deviceLink.state.ble === 'on' ? 'Bluetooth' : 'the current link';
-    if (deviceLink.state.ble !== 'on' &&
-        !confirm(`Move the device to "${ssid}"? It will drop off ${via} for a few seconds while it switches.`)) return;
-    try {
-        await deviceLink.setWifi(ssid, pass);
-        document.getElementById('devWifiMsg').innerText = 'Sent. The device is switching networks…';
-        document.getElementById('devWifiPass').value = '';
-    } catch (e) { document.getElementById('devWifiMsg').innerText = e.message; }
 });
 
 linkUI.fillSettingsForm();

@@ -17,7 +17,7 @@ const sensorPlots = {
         document.getElementById('sensorPause').addEventListener('click', () => this.togglePause());
         document.getElementById('sensorClear').addEventListener('click', () => this.clear());
         if (typeof Chart === 'undefined') {
-            document.getElementById('sensorNote').textContent = 'Charts could not be loaded (Chart.js is unavailable). The values and the table below still update.';
+            document.getElementById('sensorNote').textContent = 'Charts unavailable.';
             document.getElementById('sensorNote').hidden = false;
         } else {
             this.charts = {
@@ -104,12 +104,12 @@ const sensorPlots = {
         const last = this.samples[this.samples.length - 1];
         const current = last && !last.gap ? last : null;
         const text = (id, value) => { document.getElementById(id).textContent = value; };
-        text('sensorDistance', current && current.d !== null ? (current.d / 1000).toFixed(2) + ' m' : '—');
-        text('sensorVelocity', current && current.v !== null ? current.v.toFixed(1) + ' cm/s' : '—');
+        text('sensorDistance', current && current.d !== null ? (current.d / 1000).toFixed(2) : '—');
+        text('sensorVelocity', current && current.v !== null ? current.v.toFixed(1) : '—');
         const rate = this.packetTimes.length / 10;
-        text('sensorRate', !this.samples.length ? 'No data yet. Connect the sensor on this page.'
-            : last.gap ? 'Sensor disconnected. Showing the last readings.'
-            : `${rate.toFixed(1)} packets/s · last ${((now - last.t) / 1000).toFixed(1)} s ago`
+        text('sensorRate', !this.samples.length ? ''
+            : last.gap ? 'Disconnected'
+            : `${rate.toFixed(1)}/s`
               + (current && !current.present ? ' · no target' : '') + (this.paused ? ' · paused' : ''));
         text('sensorPacket', this.samples.length && this.lastPacket ? this.lastPacket.slice(0, 220) : 'none yet');
         if (this.charts) this.note('');  // the firmware notice is no longer shown; the raw packet line tells what arrives

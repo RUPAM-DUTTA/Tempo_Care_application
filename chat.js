@@ -243,7 +243,7 @@ const aiChat = {
         this.controller = null;
         this.conversation = crypto.randomUUID();
         document.getElementById('chatContainer').replaceChildren();
-        this.message('Choose a person and a period, then ask me anything. I can explain the latest record, summarize activity changes and count recorded entries, or give suggestions: safer night-time trips, routine, diet, exercises, what to ask the doctor.', 'bot');
+        this.message('Ask about their activity, or ask for a suggestion.', 'bot');
         document.getElementById('chatInput').value = '';
         this.setBusy(false);
         // Reset stored context too; a unique conversation ID prevents stale replies from reusing it.
